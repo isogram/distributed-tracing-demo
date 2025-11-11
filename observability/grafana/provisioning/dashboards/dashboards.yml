@@ -1,0 +1,12 @@
+apiVersion: 1
+
+providers:
+  - name: "Distributed Tracing Demo Dashboards"
+    orgId: 1
+    folder: "Distributed Tracing Demo"
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards

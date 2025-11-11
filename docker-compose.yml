@@ -1,0 +1,178 @@
+version: '3.8'
+
+services:
+  # Nginx Gateway - Entry point with trace ID generation
+  nginx:
+    image: nginx:alpine
+    container_name: nginx-gateway
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - service-a
+      - service-b
+      - service-c
+    networks:
+      - tracing-network
+
+  # Service A - Golang
+  service-a:
+    build:
+      context: ./service-a
+      dockerfile: Dockerfile
+    container_name: service-a
+    environment:
+      - OTEL_EXPORTER_OTLP_ENDPOINT=tempo:4317
+      - OTEL_SERVICE_NAME=service-a
+      - OTEL_RESOURCE_ATTRIBUTES=service.name=service-a,service.version=1.0.0
+      - SERVICE_B_URL=http://service-b:3000
+      - SERVICE_C_URL=http://service-c:5000
+    depends_on:
+      - tempo
+      - loki
+    networks:
+      - tracing-network
+    expose:
+      - "8080"
+    labels:
+      - "logging=promtail"
+      - "logging_jobname=service-a"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Service B - Node.js
+  service-b:
+    build:
+      context: ./service-b
+      dockerfile: Dockerfile
+    container_name: service-b
+    environment:
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://tempo:4317
+      - OTEL_SERVICE_NAME=service-b
+      - OTEL_RESOURCE_ATTRIBUTES=service.name=service-b,service.version=1.0.0
+      - NODE_ENV=production
+    depends_on:
+      - tempo
+      - loki
+    networks:
+      - tracing-network
+    expose:
+      - "3000"
+    labels:
+      - "logging=promtail"
+      - "logging_jobname=service-b"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Service C - Python
+  service-c:
+    build:
+      context: ./service-c
+      dockerfile: Dockerfile
+    container_name: service-c
+    environment:
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://tempo:4317
+      - OTEL_SERVICE_NAME=service-c
+      - OTEL_RESOURCE_ATTRIBUTES=service.name=service-c,service.version=1.0.0
+      - SERVICE_A_URL=http://service-a:8080
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      - tempo
+      - loki
+    networks:
+      - tracing-network
+    expose:
+      - "5000"
+    labels:
+      - "logging=promtail"
+      - "logging_jobname=service-c"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Tempo - Distributed tracing backend
+  tempo:
+    image: grafana/tempo:2.9.0
+    container_name: tempo
+    command: [ "-config.file=/etc/tempo.yaml" ]
+    volumes:
+      - ./observability/tempo.yaml:/etc/tempo.yaml
+      - tempo-data:/var/tempo
+    ports:
+      - "3200:3200"   # Tempo HTTP
+      - "3201:3201"   # Tempo gRPC Query API
+      - "4317:4317"   # OTLP gRPC receiver
+      - "4318:4318"   # OTLP HTTP receiver
+    networks:
+      - tracing-network
+
+  # Loki - Log aggregation
+  loki:
+    image: grafana/loki:3.5.8
+    container_name: loki
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - ./observability/loki.yaml:/etc/loki/local-config.yaml
+      - loki-data:/loki
+    ports:
+      - "3100:3100"
+    networks:
+      - tracing-network
+
+  # Promtail - Log collector
+  promtail:
+    image: grafana/promtail:3.0.0
+    container_name: promtail
+    volumes:
+      - ./observability/promtail.yaml:/etc/promtail/config.yml
+      - /var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
+    networks:
+      - tracing-network
+
+  # Grafana - Visualization
+  grafana:
+    image: grafana/grafana:12.2.0
+    container_name: grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_INSTALL_PLUGINS=
+      - GF_FEATURE_TOGGLES_ENABLE=traceqlEditor
+      - GF_LOG_LEVEL=info
+      - GF_PANELS_DISABLE_SANITIZE_HTML=true
+      - GF_SECURITY_ALLOW_EMBEDDING=true
+      - GF_TRACING_TEMPO_GRPC_DISABLED=true
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - tempo
+      - loki
+    networks:
+      - tracing-network
+
+volumes:
+  tempo-data:
+  loki-data:
+  grafana-data:
+
+networks:
+  tracing-network:
+    driver: bridge
