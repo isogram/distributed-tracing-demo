@@ -1,0 +1,126 @@
+# OpenTelemetry Collector Configuration
+# This collector acts as a gateway between services and Tempo,
+# providing centralized processing, sampling, and batching
+
+receivers:
+  # OTLP receiver for traces from services
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+  # Health check endpoint
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: "otel-collector"
+          scrape_interval: 10s
+          static_configs:
+            - targets: ["0.0.0.0:8888"]
+
+processors:
+  # Batch processor for efficient export
+  batch:
+    timeout: 1s
+    send_batch_size: 1024
+    send_batch_max_size: 2048
+
+  # Memory limiter to prevent OOM
+  memory_limiter:
+    limit_mib: 128
+    spike_limit_mib: 32
+    check_interval: 5s
+
+  # Sampling processor (optional - for production load)
+  probabilistic_sampler:
+    sampling_percentage: 100 # 100% for demo, reduce for production (e.g., 10)
+
+  # Resource processor to add collector metadata
+  resource:
+    attributes:
+      - key: collector.name
+        value: otel-collector-demo
+        action: insert
+      - key: collector.version
+        value: 0.91.0
+        action: insert
+
+  # Attributes processor for cleaning/enriching spans
+  attributes:
+    actions:
+      # Add deployment environment
+      - key: deployment.environment
+        value: demo
+        action: insert
+      # Clean sensitive data if present
+      - key: http.request.header.authorization
+        action: delete
+      - key: http.request.header.cookie
+        action: delete
+
+exporters:
+  # Export to Tempo
+  otlp/tempo:
+    endpoint: tempo:4317
+    tls:
+      insecure: true
+    sending_queue:
+      enabled: true
+      num_consumers: 4
+      queue_size: 100
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+      max_elapsed_time: 300s
+
+  # Logging exporter for debugging (optional)
+  logging:
+    loglevel: info
+    sampling_initial: 5
+    sampling_thereafter: 200
+
+  # Prometheus metrics exporter for collector monitoring
+  prometheus:
+    endpoint: "0.0.0.0:8889"
+    send_timestamps: true
+    metric_expiration: 180m
+    enable_open_metrics: true
+
+extensions:
+  # Health check extension
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+  # Performance profiling (optional)
+  pprof:
+    endpoint: 0.0.0.0:1777
+
+  # Memory ballast to reduce GC pressure
+  memory_ballast:
+    size_mib: 64
+
+service:
+  extensions: [health_check, pprof, memory_ballast]
+
+  pipelines:
+    # Traces pipeline
+    traces:
+      receivers: [otlp]
+      processors:
+        [memory_limiter, resource, attributes, batch, probabilistic_sampler]
+      exporters: [otlp/tempo, logging]
+
+    # Metrics pipeline for collector monitoring
+    metrics:
+      receivers: [prometheus]
+      processors: [memory_limiter, batch]
+      exporters: [prometheus]
+
+  telemetry:
+    logs:
+      level: "info"
+    metrics:
+      address: 0.0.0.0:8888

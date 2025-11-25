@@ -62,7 +62,7 @@ func initTracer() func() {
 
 	// Create OTLP trace exporter
 	exporter, err := otlptracegrpc.New(ctx,
-		otlptracegrpc.WithEndpoint(getEnv("OTEL_EXPORTER_OTLP_ENDPOINT", "tempo:4317")),
+		otlptracegrpc.WithEndpoint(getEnv("OTEL_EXPORTER_OTLP_ENDPOINT", "otel-collector:4317")),
 		otlptracegrpc.WithInsecure(),
 	)
 	if err != nil {

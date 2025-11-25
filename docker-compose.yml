@@ -16,6 +16,33 @@ services:
     networks:
       - tracing-network
 
+  # OpenTelemetry Collector - Centralized telemetry processing
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.91.0
+    container_name: otel-collector
+    command: ["--config=/etc/otel-collector.yaml"]
+    volumes:
+      - ./observability/otel-collector.yaml:/etc/otel-collector.yaml
+    ports:
+      - "4317:4317"   # OTLP gRPC receiver
+      - "4318:4318"   # OTLP HTTP receiver
+      - "8888:8888"   # Prometheus metrics
+      - "8889:8889"   # Prometheus exporter
+      - "13133:13133" # Health check
+      - "1777:1777"   # pprof
+    depends_on:
+      - tempo
+    networks:
+      - tracing-network
+    labels:
+      - "logging=promtail"
+      - "logging_jobname=otel-collector"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   # Service A - Golang
   service-a:
     build:
@@ -23,13 +50,13 @@ services:
       dockerfile: Dockerfile
     container_name: service-a
     environment:
-      - OTEL_EXPORTER_OTLP_ENDPOINT=tempo:4317
+      - OTEL_EXPORTER_OTLP_ENDPOINT=otel-collector:4317
       - OTEL_SERVICE_NAME=service-a
       - OTEL_RESOURCE_ATTRIBUTES=service.name=service-a,service.version=1.0.0
       - SERVICE_B_URL=http://service-b:3000
       - SERVICE_C_URL=http://service-c:5000
     depends_on:
-      - tempo
+      - otel-collector
       - loki
     networks:
       - tracing-network
@@ -51,12 +78,12 @@ services:
       dockerfile: Dockerfile
     container_name: service-b
     environment:
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://tempo:4317
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
       - OTEL_SERVICE_NAME=service-b
       - OTEL_RESOURCE_ATTRIBUTES=service.name=service-b,service.version=1.0.0
       - NODE_ENV=production
     depends_on:
-      - tempo
+      - otel-collector
       - loki
     networks:
       - tracing-network
@@ -78,13 +105,13 @@ services:
       dockerfile: Dockerfile
     container_name: service-c
     environment:
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://tempo:4317
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
       - OTEL_SERVICE_NAME=service-c
       - OTEL_RESOURCE_ATTRIBUTES=service.name=service-c,service.version=1.0.0
       - SERVICE_A_URL=http://service-a:8080
       - PYTHONUNBUFFERED=1
     depends_on:
-      - tempo
+      - otel-collector
       - loki
     networks:
       - tracing-network
@@ -110,10 +137,12 @@ services:
     ports:
       - "3200:3200"   # Tempo HTTP
       - "3201:3201"   # Tempo gRPC Query API
-      - "4317:4317"   # OTLP gRPC receiver
-      - "4318:4318"   # OTLP HTTP receiver
+      # OTLP ports removed - OTEL Collector now handles external OTLP traffic
     networks:
       - tracing-network
+    expose:
+      - "4317"        # Internal OTLP gRPC for collector
+      - "4318"        # Internal OTLP HTTP for collector
 
   # Loki - Log aggregation
   loki:

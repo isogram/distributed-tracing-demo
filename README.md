@@ -14,9 +14,10 @@ A comprehensive demonstration of distributed tracing in a microservices architec
 ## 🎯 Overview
 
 This production-ready demo showcases:
+
 - **Unified Distributed Tracing**: OpenTelemetry-powered trace correlation across services
 - **Dual Trace ID Systems**: Custom X-Trace-ID correlation + OpenTelemetry traceparent propagation
-- **Multi-Language Integration**: Services in Go, Node.js, and Python with proper context propagation  
+- **Multi-Language Integration**: Services in Go, Node.js, and Python with proper context propagation
 - **Complete Observability Stack**: Grafana, Tempo (tracing), Loki (logging), and Promtail
 - **Advanced Call Patterns**: Parallel, sequential, circular, and failure scenario demonstrations
 - **Production Patterns**: Error handling, timeout management, and trace context extraction
@@ -28,12 +29,15 @@ This production-ready demo showcases:
 ### Key Components
 
 **Services:**
+
 - **Service A (Go)**: Entry point service with parallel/sequential call orchestration
-- **Service B (Node.js)**: Middle-tier service with circular call capabilities  
+- **Service B (Node.js)**: Middle-tier service with circular call capabilities
 - **Service C (Python/Flask)**: Processing service with custom header cleaning middleware
 
 **Observability:**
+
 - **Nginx**: Gateway with X-Trace-ID generation and request routing
+- **OpenTelemetry Collector**: Centralized telemetry processing with sampling, batching, and filtering
 - **Tempo**: OpenTelemetry trace storage and querying with TraceQL
 - **Loki**: Structured log aggregation with trace correlation
 - **Grafana**: Unified dashboard for traces, logs, and service maps
@@ -41,18 +45,16 @@ This production-ready demo showcases:
 
 ### 🆕 Latest Versions Used
 
-- **Grafana 12.2.0**: 
+- **Grafana 12.2.0**:
   - Enhanced TraceQL editor with autocomplete
   - Improved correlations between traces and logs
   - Better visualization for distributed tracing
   - Node graph for service dependencies
-  
 - **Tempo 2.9.0**:
   - Improved TraceQL query performance
-  - Better span metrics generation  
+  - Better span metrics generation
   - Enhanced service graph capabilities
   - Optimized storage and compaction
-  
 - **Loki 3.5.8**:
   - TSDB index for faster queries
   - Improved retention management
@@ -62,9 +64,10 @@ This production-ready demo showcases:
 ## 🚀 Quick Start
 
 ### Prerequisites
+
 - Docker and Docker Compose
 - 8GB+ RAM recommended
-- Ports 8080, 3000, 3100, 3200 available
+- Ports 8080, 3000, 3100, 3200, 4317, 4318, 8888, 8889, 13133 available
 
 ### 1. Clone and Start
 
@@ -94,6 +97,9 @@ curl http://localhost:8080/health
 - **Grafana Dashboard**: http://localhost:3000 (admin/admin)
 - **Tempo**: http://localhost:3200
 - **Loki**: http://localhost:3100
+- **OTEL Collector Health**: http://localhost:13133
+- **OTEL Collector Metrics**: http://localhost:8888/metrics
+- **OTEL Collector OTLP**: localhost:4317 (gRPC), localhost:4318 (HTTP)
 
 ## 📊 Demo Scenarios
 
@@ -169,7 +175,7 @@ Access services directly through Nginx routing:
 # Access Service A directly
 curl http://localhost:8080/service-a/health
 
-# Access Service B directly  
+# Access Service B directly
 curl http://localhost:8080/service-b/health
 
 # Access Service C directly
@@ -177,13 +183,14 @@ curl http://localhost:8080/service-c/health
 ```
 
 ### Scenario 4: Direct Service Access
+
 Access services directly through Nginx routing:
 
 ```bash
 # Access Service A directly
 curl http://localhost:8080/service-a/health
 
-# Access Service B directly  
+# Access Service B directly
 curl http://localhost:8080/service-b/health
 
 # Access Service C directly
@@ -191,6 +198,7 @@ curl http://localhost:8080/service-c/health
 ```
 
 ### Scenario 5: Failure Scenarios
+
 Demonstrate error propagation and tracing through failed requests:
 
 ```bash
@@ -208,6 +216,7 @@ curl http://localhost:8080/api/demo/failure/chain
 ```
 
 **What these demonstrate:**
+
 1. **Timeout Failure**: How timeouts are handled and traced
 2. **Partial Failure**: Mixed success/failure in parallel calls
 3. **Cascade Failure**: How errors propagate through service chains
@@ -218,7 +227,7 @@ curl http://localhost:8080/api/demo/failure/chain
 ```bash
 # Service B errors
 curl http://localhost:8080/service-b/api/error          # Random error
-curl http://localhost:8080/service-b/api/timeout        # Timeout simulation  
+curl http://localhost:8080/service-b/api/timeout        # Timeout simulation
 curl http://localhost:8080/service-b/api/db-error       # Database failure
 curl http://localhost:8080/service-b/api/memory-error   # Memory exhaustion
 
@@ -286,6 +295,7 @@ curl http://localhost:8080/api/demo/failure/partial
 ```
 
 **Key Error Analysis Patterns:**
+
 - **Error Spans**: Failed operations show as red spans in trace view
 - **Exception Events**: Detailed error information attached to spans
 - **Timing Impact**: How failures affect overall request timing
@@ -295,14 +305,46 @@ curl http://localhost:8080/api/demo/failure/partial
 
 ### 🔧 OpenTelemetry Integration
 
+This demo implements **production-ready telemetry architecture** with centralized processing:
+
+#### OpenTelemetry Collector Architecture
+
+**New Enhanced Flow**:
+
+```
+Services → OpenTelemetry Collector → Tempo
+```
+
+The OTEL Collector provides:
+
+- **Centralized Processing**: Single point for telemetry data processing
+- **Batching**: Efficient batch export to reduce network overhead
+- **Sampling**: Configurable sampling rates for production workloads
+- **Filtering**: Remove PII and sensitive data from traces
+- **Buffering**: Handle temporary backend outages with retry logic
+- **Monitoring**: Built-in metrics and health checks
+- **Multiple Backends**: Can export to multiple observability platforms
+
+**Configuration highlights**:
+
+- Memory-limited processing (128MB limit)
+- Probabilistic sampling (100% for demo, configurable for production)
+- Automatic PII filtering (Authorization headers, cookies)
+- Retry logic with exponential backoff
+- Health checks and performance monitoring
+
+#### Dual Tracing Systems
+
 This demo implements **dual tracing systems** for comprehensive observability:
 
 **1. Custom X-Trace-ID System:**
+
 - Human-readable correlation IDs for log aggregation
 - Nginx-generated with timestamp and unique suffix
 - Propagated via X-Trace-ID headers
 
 **2. OpenTelemetry Distributed Tracing:**
+
 - Auto-instrumentation for Go (Gin), Node.js (Express), and Python (Flask)
 - traceparent header propagation following W3C Trace Context specification
 - Unified trace visualization in Grafana with parent-child span relationships
@@ -320,6 +362,7 @@ proxy_set_header X-Trace-ID $trace_id;
 ```
 
 ### Service A (Go) - Entry Point Pattern
+
 ```go
 func tracingMiddleware(next http.Handler) http.Handler {
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -328,30 +371,31 @@ func tracingMiddleware(next http.Handler) http.Handler {
         if traceID == "" {
             traceID = generateTraceID() // Fallback for dev
         }
-        
+
         // Add to context and propagate
         ctx := context.WithValue(r.Context(), "trace_id", traceID)
         w.Header().Set("X-Trace-ID", traceID)
-        
+
         next.ServeHTTP(w, r.WithContext(ctx))
     })
 }
 ```
 
 ### Service B (Node.js) - Downstream Pattern
+
 ```javascript
 const tracingMiddleware = (req, res, next) => {
   // Extract trace ID (required from upstream)
-  let traceId = req.headers['x-trace-id'];
-  
+  let traceId = req.headers["x-trace-id"];
+
   if (!traceId) {
     // Generate fallback but log warning
     traceId = `fallback-${Date.now()}-${uuidv4().substring(0, 8)}`;
-    logger.warn('Missing trace ID from upstream', { traceId });
+    logger.warn("Missing trace ID from upstream", { traceId });
   }
-  
+
   req.traceId = traceId;
-  res.setHeader('X-Trace-ID', traceId);
+  res.setHeader("X-Trace-ID", traceId);
   next();
 };
 ```
@@ -366,7 +410,7 @@ const tracingMiddleware = (req, res, next) => {
 class CleanHeadersMiddleware:
     def __init__(self, app):
         self.app = app
-    
+
     def __call__(self, environ, start_response):
         # Clean duplicate traceparent headers before Flask auto-instrumentation
         http_traceparent = environ.get('HTTP_TRACEPARENT', '')
@@ -374,7 +418,7 @@ class CleanHeadersMiddleware:
             # Take first traceparent value if duplicated
             cleaned_value = http_traceparent.split(',')[0].strip()
             environ['HTTP_TRACEPARENT'] = cleaned_value
-        
+
         return self.app(environ, start_response)
 
 # Apply middleware before Flask auto-instrumentation
@@ -387,10 +431,10 @@ FlaskInstrumentor().instrument_app(app)
 ```python
 def make_request_to_service_a(trace_id: str, endpoint: str = '/api/process'):
     headers = {'X-Trace-ID': trace_id, 'Content-Type': 'application/json'}
-    
+
     # Inject OpenTelemetry context into headers
     inject(headers)
-    
+
     response = requests.get(f"{SERVICE_A_URL}{endpoint}", headers=headers)
     return response.json()
 ```
@@ -405,6 +449,7 @@ def make_request_to_service_a(trace_id: str, endpoint: str = '/api/process'):
 4. **Performance Bottlenecks**: Which service/operation is slowest
 
 ### Example Trace Flow
+
 ```
 Gateway (nginx) → Service A → [Service B, Service C] (parallel)
 Trace ID: trace-2024-11-07T10:30:45Z-abc12345
@@ -412,7 +457,7 @@ Trace ID: trace-2024-11-07T10:30:45Z-abc12345
 Spans:
 ├── http_request (Service A) - 450ms
 │   ├── call_service_b (Service A) - 200ms
-│   │   └── process_request (Service B) - 180ms  
+│   │   └── process_request (Service B) - 180ms
 │   └── call_service_c (Service A) - 300ms
 │       └── process_request (Service C) - 280ms
 ```
@@ -452,7 +497,7 @@ done
 # Test B→A unified tracing
 curl -s http://localhost:8080/api/demo/circular-b-to-a | jq .
 
-# Test B→C fixed distributed tracing  
+# Test B→C fixed distributed tracing
 curl -s http://localhost:8080/api/demo/circular-b-to-c | jq .
 ```
 
@@ -473,19 +518,47 @@ time curl http://localhost:8080/api/demo/sequential
 time curl http://localhost:8080/api/demo/circular-b-to-a
 ```
 
-## 🔧 Configuration
+### Configuration
 
 ### Environment Variables
-- `OTEL_EXPORTER_OTLP_ENDPOINT`: OpenTelemetry collector endpoint
+
+- `OTEL_EXPORTER_OTLP_ENDPOINT`: Points to OTEL Collector (otel-collector:4317)
 - `SERVICE_B_URL`, `SERVICE_C_URL`: Service discovery URLs
 - Log levels can be adjusted in each service
 
+### OpenTelemetry Collector Configuration
+
+The collector is configured in `observability/otel-collector.yaml`:
+
+```yaml
+# Key features enabled:
+processors:
+  memory_limiter: # Prevents OOM with 128MB limit
+  batch: # Batches spans for efficient export
+  probabilistic_sampler: # 100% sampling (configurable for production)
+  resource: # Adds collector metadata
+  attributes: # Filters PII and enriches spans
+
+exporters:
+  otlp/tempo: # Exports to Tempo with retry logic
+  logging: # Debug logging for troubleshooting
+  prometheus: # Collector metrics for monitoring
+```
+
+**Production tuning**:
+
+- Reduce `sampling_percentage` to 10-20% for high-volume production
+- Adjust `memory_limiter` based on available resources
+- Configure multiple exporters for redundancy
+- Enable authentication for secure environments
+
 ### Scaling Services
+
 ```yaml
 # In docker-compose.yml
 service-a:
   deploy:
-    replicas: 3  # Scale to 3 instances
+    replicas: 3 # Scale to 3 instances
 ```
 
 ## 🐛 Troubleshooting
@@ -494,17 +567,20 @@ service-a:
 
 **🔴 Problem: Multiple Separate Traces Instead of Unified Traces**
 
-*Symptoms:*
+_Symptoms:_
+
 - B→A calls create single trace, but B→C creates multiple traces in Grafana
 - Same trace.id in logs but separate traces in visualization
 - Service C logs show "Flask auto-instrumentation created span with parent context" but still separate traces
 
-*Root Cause:*
+_Root Cause:_
+
 - Node.js auto-instrumentation creates duplicate traceparent headers: `"00-abc-123-01,00-abc-456-01"`
 - Flask auto-instrumentation can't handle comma-separated traceparent values
 - Results in context extraction failure and root span creation
 
-*Solution:*
+_Solution:_
+
 - Implement `CleanHeadersMiddleware` in Service C to clean duplicate headers before Flask processes them
 - Use Flask auto-instrumentation instead of manual span management
 - Verify single traceparent headers in service logs
@@ -512,26 +588,44 @@ service-a:
 ### Common Issues
 
 1. **Missing Trace IDs**: Check Nginx configuration and header propagation
-2. **No Traces in Tempo**: Verify OTLP endpoint connectivity
+2. **No Traces in Tempo**:
+   - Verify collector health: `curl http://localhost:13133`
+   - Check collector logs: `docker-compose logs otel-collector`
+   - Ensure services connect to collector, not Tempo directly
 3. **Logs Not in Loki**: Check Loki driver configuration
-4. **Services Not Starting**: Verify port availability and resource limits
+4. **Services Not Starting**:
+   - Verify port availability (4317, 4318, 8888, 8889, 13133)
+   - Check collector resource limits
 5. **Duplicate traceparent Headers**: Check for auto-instrumentation conflicts between services
+6. **Collector Memory Issues**:
+   - Monitor collector metrics: `curl http://localhost:8888/metrics`
+   - Adjust memory_limiter in otel-collector.yaml
+   - Increase sampling rate if too many traces
 
 ### Debug Commands
+
 ```bash
 # Check service logs
 docker-compose logs service-a
 docker-compose logs nginx
 
+# Check OpenTelemetry Collector
+docker-compose logs otel-collector
+curl http://localhost:13133  # Health check
+curl http://localhost:8888/metrics  # Collector metrics
+
 # Verify connectivity
 docker-compose exec service-a curl service-b:3000/health
 docker-compose exec service-b curl service-c:5000/health
+docker-compose exec service-a curl otel-collector:4317  # Test collector connectivity
 
-# Check OpenTelemetry export
+# Check OpenTelemetry export pipeline
+docker-compose logs otel-collector | grep "traces"
 docker-compose logs tempo
 ```
 
 ### Log Analysis
+
 ```bash
 # Filter logs by trace ID
 docker-compose logs | grep "trace-2024-11-07T10:30:45Z-abc12345"
@@ -598,8 +692,9 @@ docker-compose down --rmi all
 ## 🤝 Contributing
 
 Feel free to extend this demo with:
+
 - Additional services in other languages
-- More complex tracing scenarios  
+- More complex tracing scenarios
 - Custom instrumentation examples
 - Performance optimization demos
 
@@ -608,6 +703,7 @@ Feel free to extend this demo with:
 This project is licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.
 
 The MIT License allows you to:
+
 - ✅ Use this code commercially
 - ✅ Modify and distribute
 - ✅ Use in private projects

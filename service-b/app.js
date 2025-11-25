@@ -8,7 +8,7 @@ const opentelemetry = require('@opentelemetry/api');
 
 // Initialize OpenTelemetry with custom configuration
 const otlpExporter = new OTLPTraceExporter({
-  url: process.env.OTEL_EXPORTER_OTLP_ENDPOINT || 'http://tempo:4317',
+  url: process.env.OTEL_EXPORTER_OTLP_ENDPOINT || 'http://otel-collector:4317',
 });
 
 const sdk = new NodeSDK({
